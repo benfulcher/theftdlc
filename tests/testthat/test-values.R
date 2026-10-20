@@ -148,3 +148,18 @@ test_that("project(low_dim_method = 'PCA') centers the data", {
   expect_equal(pca$ModelFit$sdev, expected$sdev)
   expect_equal(abs(unname(pca$ModelFit$x[, 1])), abs(unname(expected$x[, 1])))
 })
+
+test_that("same-named features from different sets are normalized separately", {
+
+  feats <- make_features(list(setx = "x", sety = "x"))
+  feats$values[feats$feature_set == "sety"] <- feats$values[feats$feature_set == "sety"] + 1000
+
+  pca <- project(feats, norm_method = "zScore", low_dim_method = "PCA")
+  expect_equal(unname(apply(pca$ModelData, 2, stats::sd)), c(1, 1))
+
+  # k-means centers weighted by cluster size give the column means of the normalized data
+
+  clusts <- cluster(feats, norm_method = "zScore", clust_method = "kmeans", k = 2)
+  col_means <- colSums(clusts$ModelFit$centers * clusts$ModelFit$size) / sum(clusts$ModelFit$size)
+  expect_equal(unname(col_means), c(0, 0))
+})
