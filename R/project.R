@@ -96,7 +96,7 @@ project <- function(data, norm_method = c("zScore", "Sigmoid", "RobustSigmoid", 
   if(low_dim_method == "PCA"){
 
     fits <- wide_data %>%
-      stats::prcomp(center = FALSE, scale. = FALSE, ...)
+      stats::prcomp(center = TRUE, scale. = FALSE, ...)
 
     projected <- fits
 

@@ -136,3 +136,15 @@ test_that("interval(type = 'se') matches the two-sided t confidence interval", {
   expect_equal(out$.lower[out$feature_set == "setx"], ci[1])
   expect_equal(out$.upper[out$feature_set == "setx"], ci[2])
 })
+
+test_that("project(low_dim_method = 'PCA') centers the data", {
+
+  feats <- make_features(list(setx = c("f1", "f2", "f3", "f4")))
+  feats$values <- feats$values + 10
+
+  pca <- project(feats, norm_method = "MinMax", low_dim_method = "PCA")
+  expected <- stats::prcomp(pca$ModelData, center = TRUE, scale. = FALSE)
+
+  expect_equal(pca$ModelFit$sdev, expected$sdev)
+  expect_equal(abs(unname(pca$ModelFit$x[, 1])), abs(unname(expected$x[, 1])))
+})
