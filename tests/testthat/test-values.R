@@ -196,3 +196,32 @@ test_that("shrink uses every class's coefficients in multiclass problems", {
   expect_equal(sort(unique(all$names)), sort(names(vals)[rowSums(nonzero) == ncol(nonzero)]))
   expect_equal(length(unique(one$names)), 3)
 })
+
+test_that("filter_duplicates keeps exactly one copy of each duplicated feature and nothing else is removed", {
+
+  feats <- make_features(list(catch22 = c("CO_FirstMin_ac", "DN_HistogramMode_5"),
+                              feasts = c("diff1_acf1", "acf1", "coef_hurst", "trend_strength"),
+                              tsfeatures = c("diff1_acf1", "x_acf1", "firstmin_ac", "firstzero_ac", "hurst", "stability"),
+                              User = "mean"))
+
+  n_series <- length(unique(feats$id))
+
+  for(seed in 1:10){
+    out <- filter_duplicates(feats, seed = seed)
+    pairs <- unique(paste(out$feature_set, out$names))
+
+    # Duplicate groups present: diff1_acf1 (feasts, tsfeatures), acf1/x_acf1, coef_hurst/hurst, CO_FirstMin_ac/firstmin_ac
+
+    expect_equal(sum(c("feasts diff1_acf1", "tsfeatures diff1_acf1") %in% pairs), 1)
+    expect_equal(sum(c("feasts acf1", "tsfeatures x_acf1") %in% pairs), 1)
+    expect_equal(sum(c("feasts coef_hurst", "tsfeatures hurst") %in% pairs), 1)
+    expect_equal(sum(c("catch22 CO_FirstMin_ac", "tsfeatures firstmin_ac") %in% pairs), 1)
+
+    # Features without a duplicate in the data are untouched
+
+    expect_true(all(c("catch22 DN_HistogramMode_5", "feasts trend_strength", "tsfeatures firstzero_ac",
+                      "tsfeatures stability", "User mean") %in% pairs))
+
+    expect_equal(nrow(out), nrow(feats) - 4 * n_series)
+  }
+})
