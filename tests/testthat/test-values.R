@@ -123,3 +123,16 @@ test_that("every metric and hypothesis combination of compare_features runs", {
     }
   }
 })
+
+test_that("interval(type = 'se') matches the two-sided t confidence interval", {
+
+  res <- fake_results()
+  x <- res$ClassificationResults$accuracy[res$ClassificationResults$model_type == "Main" &
+                                            res$ClassificationResults$feature_set == "setx"]
+
+  out <- interval(res, metric = "accuracy", by_set = TRUE, type = "se", interval = 0.95)
+  ci <- stats::t.test(x, conf.level = 0.95)$conf.int
+
+  expect_equal(out$.lower[out$feature_set == "setx"], ci[1])
+  expect_equal(out$.upper[out$feature_set == "setx"], ci[2])
+})
