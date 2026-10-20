@@ -37,3 +37,32 @@ test_that("classify(by_set = TRUE) gives each set only its own features", {
   expect_true(list(paste0("fftquantiles_", c("quantile_1", "quantile_2", "quantile_3"))) %in% got)
   expect_true(list(paste0("quantiles_", c("q1", "q2"))) %in% got)
 })
+
+test_that("fit_models computes precision and recall from the right margins", {
+
+  # Classifier with fixed predictions for the test set
+
+  fixed_preds <- c("A", "B", "A", "B", "C", "C")
+  registerS3method("predict", "fixedpred", function(object, newdata, ...){
+    factor(fixed_preds, levels = object$lev)
+  })
+  fixed <- function(formula, data){structure(list(lev = levels(data$group)), class = "fixedpred")}
+
+  train <- data.frame(group = factor(c("A", "A", "B", "B", "C", "C")), f1 = c(1, 2, 3, 4, 5, 6))
+  test <- data.frame(group = factor(c("A", "A", "A", "B", "B", "C")), f1 = c(1, 2, 3, 4, 5, 6))
+  iters <- data.frame(seed = 1, feature_name = "f1")
+
+  res <- suppressMessages(theftdlc:::fit_models(list(list(Train = train, Test = test)), iters, 1,
+                                                is_null_run = FALSE, classifier = fixed))
+
+  # Truth A: 2 of 3 predicted A; truth B: 1 of 2 predicted B; truth C: 1 of 1 predicted C.
+  # Each class is predicted twice, with 2, 1, and 1 correct
+
+  precision <- c(2 / 2, 1 / 2, 1 / 2)
+  recall <- c(2 / 3, 1 / 2, 1 / 1)
+
+  expect_equal(res$accuracy, 4 / 6)
+  expect_equal(res$mean_precision, mean(precision))
+  expect_equal(res$mean_recall, mean(recall))
+  expect_equal(res$mean_f1_score, mean(2 * precision * recall / (precision + recall)))
+})

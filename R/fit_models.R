@@ -64,10 +64,10 @@ fit_models <- function(data, iter_data, row_id, is_null_run = FALSE, classifier)
   # Fit classifier, generate predictions, and calculate metrics
 
   mod <- classifier(formula = group ~ ., data = train)
-  cm <- t(as.matrix(table(stats::predict(mod, newdata = test), test$group)))
+  cm <- t(as.matrix(table(stats::predict(mod, newdata = test), test$group))) # Rows are true classes, columns are predicted classes
   acc <- sum(diag(cm)) / sum(cm)
-  precision <- diag(cm) / rowSums(cm)
-  recall <- diag(cm) / colSums(cm)
+  precision <- diag(cm) / colSums(cm) # TP / (TP + FP)
+  recall <- diag(cm) / rowSums(cm) # TP / (TP + FN)
   mean_precision <- mean(precision, na.rm = TRUE)
   mean_recall <- mean(recall, na.rm = TRUE)
   mean_f1_score <- mean(2 * (precision * recall) / (precision + recall), na.rm = TRUE)
