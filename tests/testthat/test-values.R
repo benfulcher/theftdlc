@@ -66,3 +66,43 @@ test_that("fit_models computes precision and recall from the right margins", {
   expect_equal(res$mean_recall, mean(recall))
   expect_equal(res$mean_f1_score, mean(2 * precision * recall / (precision + recall)))
 })
+
+# Fake classify() output with known accuracies
+
+fake_results <- function(){
+  set.seed(5)
+  x <- 0.80 + stats::rnorm(30, sd = 0.03)
+  y <- 0.75 + stats::rnorm(30, sd = 0.03)
+  z <- 0.50 + stats::rnorm(30, sd = 0.03)
+  res <- data.frame(model_type = rep(c("Main", "Main", "Null", "Null"), each = 30),
+                    resample = rep(1:30, 4),
+                    feature_set = rep(c("setx", "sety", "setx", "sety"), each = 30),
+                    accuracy = c(x, y, z, z + 0.01))
+  res$mean_precision <- res$accuracy
+  res$mean_recall <- res$accuracy
+  res$mean_f1_score <- res$accuracy
+  list(TrainTestSizes = c(train_size = 75, test_size = 25), ClassificationResults = res)
+}
+
+test_that("compare_features uses the corrected resampled t-test with the train and test sizes", {
+
+  res <- fake_results()
+  cr <- res$ClassificationResults
+  d <- cr$accuracy[cr$model_type == "Main" & cr$feature_set == "setx"] - cr$accuracy[cr$model_type == "Main" & cr$feature_set == "sety"]
+
+  # Nadeau and Bengio (2003): t = mean(d) / sqrt(var(d) * (1 / J + n_test / n_train))
+
+  t_expected <- mean(d) / sqrt(stats::var(d) * (1 / 30 + 25 / 75))
+  p_expected <- 2 * stats::pt(-abs(t_expected), 29)
+
+  out <- suppressMessages(compare_features(res, metric = "accuracy", by_set = TRUE, hypothesis = "pairwise"))
+  expect_equal(out$t_statistic, t_expected)
+  expect_equal(out$p.value, p_expected)
+
+  dn <- cr$accuracy[cr$model_type == "Main" & cr$feature_set == "setx"] - cr$accuracy[cr$model_type == "Null" & cr$feature_set == "setx"]
+  tn_expected <- mean(dn) / sqrt(stats::var(dn) * (1 / 30 + 25 / 75))
+
+  out_null <- suppressMessages(compare_features(res, metric = "accuracy", by_set = TRUE, hypothesis = "null"))
+  expect_equal(out_null$t_statistic[out_null$feature_set == "setx"], tn_expected)
+  expect_equal(out_null$p.value[out_null$feature_set == "setx"], 1 - stats::pt(tn_expected, 29))
+})
