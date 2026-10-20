@@ -106,3 +106,20 @@ test_that("compare_features uses the corrected resampled t-test with the train a
   expect_equal(out_null$t_statistic[out_null$feature_set == "setx"], tn_expected)
   expect_equal(out_null$p.value[out_null$feature_set == "setx"], 1 - stats::pt(tn_expected, 29))
 })
+
+test_that("every metric and hypothesis combination of compare_features runs", {
+
+  res <- fake_results()
+  res_feat <- res
+  res_feat$ClassificationResults <- res$ClassificationResults %>%
+    dplyr::rename(names = "feature_set")
+
+  for(metric in c("accuracy", "precision", "recall", "f1")){
+    for(hypothesis in c("null", "pairwise")){
+      out <- suppressMessages(compare_features(res, metric = metric, by_set = TRUE, hypothesis = hypothesis))
+      expect_true(all(is.finite(out$t_statistic)))
+      out <- suppressMessages(compare_features(res_feat, metric = metric, by_set = FALSE, hypothesis = hypothesis))
+      expect_true(all(is.finite(out$t_statistic)))
+    }
+  }
+})
