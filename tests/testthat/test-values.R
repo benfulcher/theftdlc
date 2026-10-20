@@ -163,3 +163,36 @@ test_that("same-named features from different sets are normalized separately", {
   col_means <- colSums(clusts$ModelFit$centers * clusts$ModelFit$size) / sum(clusts$ModelFit$size)
   expect_equal(unname(col_means), c(0, 0))
 })
+
+test_that("shrink uses every class's coefficients in multiclass problems", {
+
+  # Each class differs from the others on its own feature
+
+  set.seed(1)
+  n <- 30
+  groups <- rep(c("A", "B", "C"), each = n)
+  ids <- paste0("ts", seq_along(groups))
+  vals <- list(fa = stats::rnorm(3 * n) + 4 * (groups == "A"),
+               fb = stats::rnorm(3 * n) + 4 * (groups == "B"),
+               fc = stats::rnorm(3 * n) + 4 * (groups == "C"))
+
+  feats <- do.call(rbind, lapply(names(vals), function(f){
+    data.frame(id = ids, group = groups, feature_set = "setx", names = f, values = vals[[f]])
+  }))
+  feats <- structure(feats, class = c("feature_calculations", "data.frame"))
+
+  set.seed(2)
+  mod <- glmnet::cv.glmnet(as.matrix(as.data.frame(vals)), groups, family = "multinomial", type.measure = "class")
+  coefs <- stats::coef(mod)
+  nonzero <- sapply(coefs, function(x){as.vector(x[-1, 1]) != 0})
+  rownames(nonzero) <- names(vals)
+
+  set.seed(2)
+  one <- shrink(feats, threshold = "one")
+  set.seed(2)
+  all <- shrink(feats, threshold = "all")
+
+  expect_equal(sort(unique(one$names)), sort(names(vals)[rowSums(nonzero) > 0]))
+  expect_equal(sort(unique(all$names)), sort(names(vals)[rowSums(nonzero) == ncol(nonzero)]))
+  expect_equal(length(unique(one$names)), 3)
+})
